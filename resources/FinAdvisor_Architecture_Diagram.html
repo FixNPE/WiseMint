@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinAdvisor — Animated Architecture Walkthrough</title>
+<style>
+  :root{
+    --bg:#0e1726; --panel:#13203a; --panel2:#1b2c4d; --ink:#e8eefc;
+    --muted:#9fb2d4; --line:#33518a; --accent:#3b82f6; --accent2:#60a5fa;
+    --glow:#5b9dff; --green:#22a06b; --teal:#159a8c; --purple:#7c5cff; --amber:#d98a1f;
+    --cur:#3b82f6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:radial-gradient(1200px 600px at 50% -10%,#16264a,#0b1322 60%);
+    color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    padding:26px 20px 70px;
+  }
+  .wrap{max-width:1320px;margin:0 auto}
+  h1{font-size:25px;margin:0 0 3px;font-weight:700}
+  .sub{color:var(--muted);font-size:13.5px;margin:0}
+
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:18px 0 6px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+  .bar button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    padding:8px 14px;border-radius:10px;font-size:13px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:6px}
+  .bar button:hover{background:#27457e;border-color:#5680cf}
+  .bar button.primary{background:var(--accent);border-color:var(--accent2);font-weight:600}
+  .bar button.primary:hover{background:#2f6fe0}
+  .bar .spacer{flex:1}
+  .bar #voiceSelect{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    padding:7px 10px;border-radius:10px;font-size:12.5px;max-width:200px;cursor:pointer}
+  .bar .rate{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);
+    background:var(--panel2);border:1px solid var(--line);padding:6px 10px;border-radius:10px}
+  .bar .rate input{width:78px;accent-color:var(--accent)}
+  .bar .toggle{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);
+    background:var(--panel2);border:1px solid var(--line);padding:7px 12px;border-radius:10px;cursor:pointer}
+  .bar .toggle.on{color:var(--ink);border-color:var(--accent2)}
+  .switch{width:34px;height:18px;border-radius:10px;background:#33425f;position:relative;transition:.2s}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.2s}
+  .toggle.on .switch{background:var(--accent)}
+  .toggle.on .switch::after{left:18px}
+  .progress{height:4px;background:#22344f;border-radius:4px;margin:10px 2px 4px;overflow:hidden}
+  .progress > i{display:block;height:100%;width:0;background:var(--cur,var(--accent));box-shadow:0 0 10px var(--cur);transition:width .4s,background .3s}
+  .stepcount{font-size:11.5px;color:var(--muted);margin:0 2px 18px}
+
+  .section-label{font-size:11.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin:24px 2px 12px;font-weight:600}
+
+  .pipeline{display:grid;grid-template-columns:repeat(8,1fr);gap:9px}
+  .node{position:relative;background:var(--panel);border:1px solid var(--line);
+    border-top:3px solid var(--c,#33518a);border-radius:12px;color:var(--c,#9fb2d4);
+    padding:12px 10px;cursor:pointer;transition:.25s;min-height:172px}
+  .node .num{position:absolute;top:-10px;left:-10px;width:23px;height:23px;border-radius:50%;
+    background:var(--c,#2a3f66);color:#0b1322;font-size:11.5px;font-weight:800;display:grid;place-items:center;transition:.25s;
+    box-shadow:0 0 0 2px var(--panel)}
+  .node .ico{font-size:18px;margin-bottom:4px}
+  .node .t{font-size:12.5px;font-weight:600;line-height:1.18;color:var(--ink)}
+  .node .d{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3}
+  .node .mini{margin-top:7px;border-top:1px solid #25375a;padding-top:6px;display:flex;flex-direction:column;gap:3px}
+  .node .mini b{font-size:9.5px;color:#aebfe0;font-weight:600;line-height:1.2}
+  .node .mini span{font-size:9px;color:#7d92ba;line-height:1.2}
+
+  .layers{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}
+  .layer{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--c,#33518a);
+    border-radius:12px;padding:13px;cursor:pointer;transition:.25s;color:var(--c,#9fb2d4)}
+  .layer h3{margin:0 0 4px;font-size:12.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--c,var(--ink))}
+  .layer .tag{font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;color:#0b1322;background:var(--c,#2a3f66)}
+  .layer ul{margin:8px 0 0;padding-left:15px}
+  .layer li{font-size:10.5px;color:var(--muted);margin:4px 0;line-height:1.35}
+  .layer li b{color:#c4d3f0}
+
+  .active{border-color:currentColor!important;
+    transform:translateY(-4px) scale(1.04);background:#16233f;z-index:5;
+    animation:pulse 1.6s ease-in-out infinite}
+  .active .num{background:currentColor;color:#0b1322}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 2px currentColor,0 0 16px 3px currentColor}
+    50%{box-shadow:0 0 0 3px currentColor,0 0 38px 10px currentColor}}
+  .dim{opacity:.32;filter:grayscale(.45)}
+
+  .narr{margin-top:20px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;
+    padding:18px 20px;min-height:96px;position:relative;overflow:hidden}
+  .narr::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--cur,var(--accent));transition:background .3s}
+  .narr .eyebrow{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--cur,var(--accent2));font-weight:800;margin-bottom:4px;transition:color .3s}
+  .narr h2{margin:0 0 7px;font-size:18px}
+  .narr p.lead{margin:0;color:#cfdcf3;font-size:13.5px;line-height:1.55}
+  .subgrid{margin-top:13px;display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+  .subitem{background:#0e1a30;border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+  .subitem .sname{font-size:12px;font-weight:700;color:#e8eefc;display:flex;align-items:center;gap:6px}
+  .subitem .sname .b{width:8px;height:8px;border-radius:50%;background:var(--cur,var(--accent2));display:inline-block;flex:none;box-shadow:0 0 6px var(--cur)}
+  .subitem .stext{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .toolrow{margin-top:13px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .toolrow .lbl{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .toolrow .chip{background:#15294a;border:1px solid var(--cur,#2f64b3);border-radius:8px;padding:4px 9px;font-size:11px;color:#eaf1ff;font-weight:500;transition:border-color .3s}
+  .speaking{display:inline-flex;gap:3px;margin-left:8px;vertical-align:middle}
+  .speaking i{width:3px;height:11px;background:var(--accent2);border-radius:2px;animation:bars 1s ease-in-out infinite;display:inline-block}
+  .speaking i:nth-child(2){animation-delay:.15s}.speaking i:nth-child(3){animation-delay:.3s}.speaking i:nth-child(4){animation-delay:.45s}
+  @keyframes bars{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+
+  footer{margin-top:30px;color:var(--muted);font-size:11px;border-top:1px solid var(--line);padding-top:14px;line-height:1.5}
+  kbd{background:#0e1a30;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-size:11px}
+
+  @media(max-width:1050px){.pipeline{grid-template-columns:repeat(4,1fr)}.layers{grid-template-columns:repeat(3,1fr)}.subgrid{grid-template-columns:1fr}}
+  @media(max-width:640px){.pipeline{grid-template-columns:repeat(2,1fr)}.layers{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FinAdvisor — Architecture Walkthrough</h1>
+  <p class="sub">Agentic, retrieval-grounded, tool-using financial guidance assistant on an open-weights Llama-3 LLM — adapted by prompt engineering, RAG and tool-use rather than fine-tuning.</p>
+
+  <div class="bar">
+    <button class="primary" id="play">▶ Play tour</button>
+    <button id="prev">◀ Prev</button>
+    <button id="next">Next ▶</button>
+    <button id="restart">↻ Restart</button>
+    <div class="spacer"></div>
+    <select id="voiceSelect" title="Narration voice"></select>
+    <label class="rate" title="Speech speed">⏩ <input id="rate" type="range" min="0.7" max="1.4" step="0.05" value="1.02"></label>
+    <button id="preview" title="Preview voice">🔈 Test</button>
+    <div class="toggle on" id="audioToggle"><span class="switch"></span> 🔊 Narration</div>
+  </div>
+  <div class="progress"><i id="bar"></i></div>
+  <div class="stepcount" id="stepcount">Press <kbd>▶ Play</kbd> for an auto-narrated tour — or click any block, or use <kbd>←</kbd> <kbd>→</kbd> arrow keys.</div>
+
+  <div class="section-label">Request Workflow — ReAct Agent Loop (capped at 6 steps)</div>
+  <div class="pipeline" id="pipeline">
+    <div class="node" data-id="n1"><span class="num">1</span><div class="ico">💬</div><div class="t">User Query</div><div class="d">Free-text question via chat UI</div>
+      <div class="mini"><b>Streamlit chat UI</b><span>3 pillars: Q&amp;A · portfolio · goals</span><span>Profile sidebar input</span></div></div>
+    <div class="node" data-id="n2"><span class="num">2</span><div class="ico">🧭</div><div class="t">Intent Classification</div><div class="d">Routes query to a pillar</div>
+      <div class="mini"><b>LLM zero-shot (Llama-3)</b><span>Prompt-engineered routing</span><span>Gates which tools run</span></div></div>
+    <div class="node" data-id="n3"><span class="num">3</span><div class="ico">🧩</div><div class="t">Agent Orchestrator</div><div class="d">ReAct reason–act loop</div>
+      <div class="mini"><b>ReAct + dispatcher</b><span>≤6 steps, 4000-char bound</span><span>OpenAI-style tool schemas</span></div></div>
+    <div class="node" data-id="n4"><span class="num">4</span><div class="ico">🤖</div><div class="t">Specialized Agents</div><div class="d">4 specialist behaviours</div>
+      <div class="mini"><b>Risk Profiling</b><span>Market Intelligence</span><span>Portfolio Analysis</span><span>Goal Planning</span></div></div>
+    <div class="node" data-id="n5"><span class="num">5</span><div class="ico">📊</div><div class="t">Planning Engine</div><div class="d">Builds the proposal</div>
+      <div class="mini"><b>Aggregates specialists</b><span>Goal-based scenarios</span><span>Deterministic projections</span></div></div>
+    <div class="node" data-id="n6"><span class="num">6</span><div class="ico">🧠</div><div class="t">LLM Generation</div><div class="d">Grounded synthesis</div>
+      <div class="mini"><b>Llama-3.3-70B · Groq</b><span>No fine-tuning (inference-side)</span><span>RAG + USER CONTEXT in prompt</span></div></div>
+    <div class="node" data-id="n7"><span class="num">7</span><div class="ico">🛡️</div><div class="t">Safety &amp; Guardrails</div><div class="d">Layered guardrails</div>
+      <div class="mini"><b>Input flag + scrub</b><span>Directive removal (regex)</span><span>Disclaimer enforced</span></div></div>
+    <div class="node" data-id="n8"><span class="num">8</span><div class="ico">✅</div><div class="t">Response to User</div><div class="d">Final answer</div>
+      <div class="mini"><b>Inline citations</b><span>Plotly charts</span><span>Educational framing</span></div></div>
+  </div>
+
+  <div class="section-label">Supporting Layers — Knowledge, Data, Tools, Memory &amp; LLMOps</div>
+  <div class="layers">
+    <div class="layer" data-id="kb"><h3>📚 Knowledge Base <span class="tag">RAG</span></h3>
+      <ul><li><b>Corpus:</b> investor primers, tax &amp; retirement guides, 30+ term glossary</li><li><b>Ingest:</b> 800-char chunks / 120 overlap → BGE-small embeddings</li><li><b>Hybrid:</b> BM25 + Chroma dense → RRF (k=60) → top-4 + citations</li></ul></div>
+    <div class="layer" data-id="data"><h3>🌐 Live Market Data <span class="tag">API</span></h3>
+      <ul><li><b>Alpha Vantage:</b> quotes, fundamentals, news sentiment, sector, FX</li><li><b>Normalize:</b> JSON → typed fields</li><li><b>Cache:</b> SQLite, 30-min TTL, ~85% hit rate</li></ul></div>
+    <div class="layer" data-id="det"><h3>🧮 Deterministic Tools <span class="tag">Math</span></h3>
+      <ul><li><b>Projections:</b> compound-interest FV, retirement</li><li><b>Schedules:</b> savings-goal &amp; debt amortization</li><li><b>Allocation:</b> glide-path heuristic · portfolio risk metrics</li></ul></div>
+    <div class="layer" data-id="mem"><h3>👤 User Memory <span class="tag">Persistent</span></h3>
+      <ul><li><b>Profile:</b> age, income, risk, goals, holdings</li><li><b>Context:</b> conversation history</li><li><b>Use:</b> SQLite → injected as USER CONTEXT each turn</li></ul></div>
+    <div class="layer" data-id="eval"><h3>📈 Evaluation &amp; LLMOps <span class="tag">MLOps</span></h3>
+      <ul><li><b>Benchmarks:</b> Financial PhraseBank, FiQA</li><li><b>LLM-as-judge:</b> 5-dim rubric on advisor tasks</li><li><b>Ops:</b> MLflow tracking · Docker · HF Spaces · CI</li></ul></div>
+  </div>
+
+  <div class="narr" id="narr">
+    <div class="eyebrow">Overview</div>
+    <h2 id="ntitle">A guided tour of the FinAdvisor pipeline</h2>
+    <p class="lead" id="ntext">Press Play to watch the request flow light up step by step, with spoken narration. Each box is broken down into its sub-components and the tools behind it. You can also click any block, or step through with the arrow keys.</p>
+    <div class="subgrid" id="nsub"></div>
+    <div class="toolrow" id="ntools"></div>
+  </div>
+
+  <footer>
+    Stack: Llama-3.3-70B (Groq) · ReAct agent · Hybrid RAG (BM25 + BGE-small + RRF, k=60) · ChromaDB · Alpha Vantage · SQLite · MLflow · Docker · Streamlit / Hugging Face Spaces.
+    Domain adaptation is inference-side (prompt + RAG + tools) — deliberately <i>not</i> fine-tuning. Narration uses your browser's built-in voice; toggle 🔊 for silent mode.
+  </footer>
+</div>
+
+<script>
+  const tour = [
+    {id:"n1", title:"① User Query",
+      lead:"The entry point. The user types a free-text finance question into the Streamlit chat interface — no structured form. Every question falls into one of three pillars, and the sidebar profile shapes the answer.",
+      say:"Step one. The user types a finance question into the chat. It's either a concept question, a portfolio question, or a goal question.",
+      sub:[
+        ["Conversational Q&A","Concept and definition questions, answered from the retrieval knowledge base with citations."],
+        ["Portfolio analysis","User pastes holdings; the system fetches live prices and reviews allocation, concentration and risk."],
+        ["Goal planning","Retirement, savings or debt targets are turned into funded projections."],
+        ["Profile sidebar","Age, income, risk tolerance and goals are captured here and personalize every turn."]],
+      tools:["Streamlit","Session state","Sidebar forms"]},
+
+    {id:"mem", title:"👤 User Memory (Persistent)",
+      lead:"In parallel, the persistent profile is loaded and injected into the prompt as a USER CONTEXT block, so every response is personalized to this specific user.",
+      say:"The saved profile is loaded from memory and injected into the prompt, so the answer is personalized.",
+      sub:[
+        ["Profile store","SQLite record of age, income, risk tolerance, goals and current holdings, set from the sidebar."],
+        ["Conversation context","Recent turns are retained so follow-up questions stay coherent."],
+        ["USER CONTEXT injection","The profile is rendered into the system prompt on every turn — the personalization mechanism."]],
+      tools:["SQLite (profile.db)","Prompt injection","Per-turn context"]},
+
+    {id:"n2", title:"② Intent Classification",
+      lead:"A lightweight LLM-based zero-shot classifier reads the query (plus recent context) and routes it to one of the three pillars, selecting the right tool set and system-prompt template. It is prompt-engineered — there is no separately trained classifier model.",
+      say:"Step two. An LLM classifies the request — Q and A, portfolio, or goal planning — and routes it to the right tools.",
+      sub:[
+        ["Routing decision","Picks the pillar: conversational Q&A vs portfolio analysis vs goal planning."],
+        ["Model & method","Llama-3 used zero-shot via prompt engineering — no extra model to train or host."],
+        ["Tool gating","Narrows which tools the orchestrator is allowed to call, reducing wasted tool calls."]],
+      tools:["Llama-3","Prompt engineering","Zero-shot routing"]},
+
+    {id:"n3", title:"③ Agent Orchestrator (ReAct)",
+      lead:"The control loop. It runs the ReAct (Reason + Act) pattern: the model thinks, optionally emits a tool call, a deterministic dispatcher executes it, the observation returns, and the loop repeats until a final answer — with hard safety bounds.",
+      say:"Step three. The orchestrator runs a React loop — reason, call a tool, read the result, repeat — up to six steps.",
+      sub:[
+        ["Reason step","The model plans which knowledge or tool it needs next."],
+        ["Act step","The dispatcher invokes the chosen tool using an OpenAI-style tool-call schema with validated arguments."],
+        ["Observe step","The tool result is fed back into context for the next thought."],
+        ["Guards","Capped at 6 steps; each tool output bounded to 4000 chars to prevent runaway loops."]],
+      tools:["ReAct (Yao 2023)","Tool-call schemas","Deterministic dispatcher"]},
+
+    {id:"kb", title:"📚 Knowledge Base — RAG",
+      lead:"For concept questions the agent retrieves from a curated, freely-licensed financial-education corpus. Retrieval is hybrid — blending lexical and semantic search — for both precision and recall.",
+      say:"For concept questions, it retrieves from a knowledge base using hybrid search and returns the top passages with citations.",
+      sub:[
+        ["Corpus","Investor primers, retirement and tax guides, plus an in-repo glossary of 30+ terms."],
+        ["Ingestion","Documents are split into 800-char chunks with 120-char overlap and embedded with BGE-small."],
+        ["Hybrid retrieval","BM25 lexical + ChromaDB dense vectors are fused by Reciprocal Rank Fusion (k=60)."],
+        ["Grounding output","Top-4 passages with source attribution are piped into the prompt for inline citation."]],
+      tools:["ChromaDB","BM25 (rank_bm25)","BGE-small","RRF k=60"]},
+
+    {id:"data", title:"🌐 Live Market Data",
+      lead:"For anything market-related the agent calls live data through Alpha Vantage, then normalizes and caches it to stay current without breaching rate limits.",
+      say:"For market questions, it pulls live quotes, fundamentals, news sentiment and sector moves, and caches them.",
+      sub:[
+        ["Quotes & fundamentals","GLOBAL_QUOTE (price/volume) and OVERVIEW (sector, P/E, beta, 52-week range)."],
+        ["News sentiment","NEWS_SENTIMENT gives per-article sentiment scores linked to tickers and topics."],
+        ["Sector & FX","Real-time sector performance and currency exchange rates."],
+        ["Caching","Responses normalized from JSON and cached in SQLite with a 30-min TTL (~85% hit rate)."]],
+      tools:["Alpha Vantage","SQLite cache","30-min TTL"]},
+
+    {id:"det", title:"🧮 Deterministic Tools",
+      lead:"Any number that must be exact is computed by deterministic math tools — never guessed by the model. This is what makes quantitative answers auditable.",
+      say:"Exact numbers come from deterministic math tools, so the model never guesses the math.",
+      sub:[
+        ["Projections","Compound-interest future value for retirement and savings goals."],
+        ["Schedules","Savings-goal funding and debt-amortization schedules."],
+        ["Allocation heuristic","Glide-path equity split: clip(110 − age + risk_adj, 20, 95)."],
+        ["Risk metrics","Portfolio concentration and basic risk measures; verified within 0.5% of online calculators."]],
+      tools:["Python math","Glide-path","Amortization"]},
+
+    {id:"n4", title:"④ Specialized Agents",
+      lead:"Four specialist behaviours, invoked as the intent requires. Each one fuses retrieved knowledge, live data and deterministic math into a focused sub-result.",
+      say:"Step four. Four specialized agents run as needed — risk profiling, market intelligence, portfolio analysis, and goal planning.",
+      sub:[
+        ["Risk Profiling Agent","Maps age, income and stated risk tolerance to a suitability profile and a target equity/bond split via the glide-path heuristic."],
+        ["Market Intelligence Agent","Pulls live quotes, fundamentals, sector moves and news sentiment to contextualize a ticker or sector."],
+        ["Portfolio Analysis Agent","Values pasted holdings, computes allocation and concentration, and flags over-exposure or single-name risk."],
+        ["Goal Planning Agent","Turns a retirement, savings or debt goal into a funded projection with the required monthly contribution."]],
+      tools:["Glide-path heuristic","Alpha Vantage","Risk metrics","RAG"]},
+
+    {id:"n5", title:"⑤ Planning / Investment Proposal Engine",
+      lead:"Aggregates the specialist outputs into a single coherent, goal-based proposal scaffold — the structured recommendation, with deterministic numbers attached, that the LLM will narrate.",
+      say:"Step five. The planning engine combines the specialist outputs into one coherent, goal-based proposal.",
+      sub:[
+        ["Aggregation","Merges risk, market, portfolio and goal results into one structure."],
+        ["Scenario framing","Builds goal-based scenarios — e.g. retire-at-60, payoff date, target funding."],
+        ["Deterministic projections","Embeds exact future-value and amortization figures so the narration stays grounded."]],
+      tools:["Compound-interest math","Scenario builder"]},
+
+    {id:"n6", title:"⑥ LLM Answer Generation",
+      lead:"Llama-3.3-70B, served via Groq, writes the response. The model is frozen — domain adaptation is inference-side (prompt + RAG + tool-use), a deliberate alternative to the much more expensive fine-tuning path.",
+      say:"Step six. Llama three, served via Groq, writes the grounded answer using the retrieved sources, tool results, and user context.",
+      sub:[
+        ["Model","Llama-3.3-70B open-weights via Groq inference; first token under one second."],
+        ["Adaptation choice","No fine-tuning or LoRA — prompt + RAG + tools instead. Contrast: BloombergGPT (~$2.7M pre-train), FinGPT (LoRA training)."],
+        ["Grounding","Answers cite retrieved sources; quantitative claims come from tools, not the model."],
+        ["Personalization","The USER CONTEXT block is injected on every turn."]],
+      tools:["Llama-3.3-70B","Groq","Prompt engineering","No fine-tune"]},
+
+    {id:"n7", title:"⑦ Safety & Guardrails",
+      lead:"Layered guardrails wrap generation on both sides. This is what makes the assistant safe to ship in a regulated domain without giving directive financial advice.",
+      say:"Step seven. A safety layer screens the input, scrubs directive advice, and enforces a disclaimer before sending.",
+      sub:[
+        ["Input screening","Flags prompt-injection attempts and signs of user distress before the loop runs."],
+        ["Directive scrubbing","Output-time regex removes directive trade calls and 'guaranteed profit' language."],
+        ["Disclaimer enforcement","A mandatory educational, not-financial-advice disclaimer is appended to every response."],
+        ["Red-team evaluation","Validated against a 20-prompt adversarial set, targeting a 100% pass rate."]],
+      tools:["Regex filters","Injection/distress flagging","Red-team set"]},
+
+    {id:"n8", title:"⑧ Response to User",
+      lead:"The final personalized, educational answer is returned with inline source citations and, where relevant, charts. The loop is then ready for the next question.",
+      say:"Finally, the user gets a personalized, educational answer with citations and charts. The loop is ready for the next question.",
+      sub:[
+        ["Cited answer","Inline [Source: …] attributions trace every claim back to the knowledge base."],
+        ["Visuals","Plotly charts: allocation pie, goal-projection path, and sector heatmap."],
+        ["Educational framing","Explains the reasoning and concepts — never a directive buy/sell instruction."]],
+      tools:["Streamlit","Plotly","Citations"]},
+
+    {id:"eval", title:"📈 Evaluation & LLMOps",
+      lead:"Cross-cutting: how the system is measured and operated. This is the evaluation harness and the MLOps tooling that keep the build reproducible and honest.",
+      say:"Across the whole system, evaluation and L L M ops measure quality and keep the build reproducible.",
+      sub:[
+        ["Benchmarks","Financial PhraseBank sentiment (target ≥0.75) and a FiQA subset for retrieval-QA quality."],
+        ["LLM-as-judge","10 custom advisor tasks scored on a 5-dim rubric: accuracy, groundedness, personalization, safety, rubric match (target ≥4/5)."],
+        ["Operational metrics","Tool-call success ≥90%, agent latency 4–6s with one tool call, cache hit ~85%."],
+        ["LLMOps tooling","MLflow experiment tracking, pinned requirements, Dockerized deploy to Hugging Face Spaces, CI for reproducibility."]],
+      tools:["MLflow","Docker","HF Spaces","pytest / CI"]},
+  ];
+
+  // The 8 pipeline boxes are the only numbered steps; supporting layers are not counted.
+  const STEP_IDS=['n1','n2','n3','n4','n5','n6','n7','n8'];
+  // Play numbered steps in order first, then the supporting layers (stable order preserved).
+  tour.sort((a,b)=>{
+    const ai=STEP_IDS.indexOf(a.id), bi=STEP_IDS.indexOf(b.id);
+    return (ai<0?99:ai)-(bi<0?99:bi);
+  });
+
+  const nodes = document.querySelectorAll('[data-id]');
+  const byId = {}; nodes.forEach(n=>byId[n.dataset.id]=n);
+
+  // Vibrant per-box palette
+  const COLORS={
+    n1:'#ef4444', n2:'#f97316', n3:'#f59e0b', n4:'#22c55e',
+    n5:'#14b8a6', n6:'#3b82f6', n7:'#8b5cf6', n8:'#ec4899',
+    kb:'#10b981', data:'#06b6d4', det:'#eab308', mem:'#a855f7', eval:'#f43f5e'
+  };
+  nodes.forEach(n=>{ const c=COLORS[n.dataset.id]; if(c) n.style.setProperty('--c',c); });
+  function setCur(id){ document.documentElement.style.setProperty('--cur', COLORS[id]||'#3b82f6'); }
+  const ntitle=document.getElementById('ntitle'), ntext=document.getElementById('ntext'),
+        nsub=document.getElementById('nsub'), ntools=document.getElementById('ntools'),
+        eyebrow=document.querySelector('.narr .eyebrow'),
+        bar=document.getElementById('bar'), stepcount=document.getElementById('stepcount');
+
+  let idx=-1, playing=false, timer=null, audioOn=true;
+  let voices=[], chosenVoice=null, rate=1.02;
+  const voiceSelect=document.getElementById('voiceSelect'),
+        rateInput=document.getElementById('rate');
+
+  function loadVoices(){
+    if(!('speechSynthesis' in window)) return;
+    voices=window.speechSynthesis.getVoices();
+    if(!voices.length) return;
+    const prev=voiceSelect.value;
+    // English voices first, then the rest
+    const sorted=voices.slice().sort((a,b)=>{
+      const ae=a.lang.startsWith('en')?0:1, be=b.lang.startsWith('en')?0:1;
+      return ae-be || a.name.localeCompare(b.name);
+    });
+    voiceSelect.innerHTML=sorted.map(v=>
+      '<option value="'+v.name+'">'+v.name+' — '+v.lang+(v.default?' (default)':'')+'</option>').join('');
+    // pick a sensible default the first time
+    if(!chosenVoice){
+      const pick=sorted.find(v=>/en-US/i.test(v.lang)&&/female|samantha|aria|jenny|zira/i.test(v.name))
+               ||sorted.find(v=>/en-US/i.test(v.lang))||sorted.find(v=>/^en/i.test(v.lang))||sorted[0];
+      chosenVoice=pick; voiceSelect.value=pick.name;
+    } else if(prev){ voiceSelect.value=prev; }
+  }
+  if('speechSynthesis' in window){
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged=loadVoices;
+  }
+  voiceSelect.onchange=()=>{ chosenVoice=voices.find(v=>v.name===voiceSelect.value)||chosenVoice; };
+  rateInput.oninput=()=>{ rate=parseFloat(rateInput.value); };
+  document.getElementById('preview').onclick=()=>{
+    primeSpeech();
+    const wasOn=audioOn; audioOn=true;
+    speak('This is the '+(chosenVoice?chosenVoice.name:'default')+' narration voice.');
+    audioOn=wasOn;
+  };
+
+  function clearGlow(){nodes.forEach(n=>{n.classList.remove('active');n.classList.remove('dim');});}
+  function render(i){
+    const s=tour[i]; if(!s) return;
+    clearGlow();
+    nodes.forEach(n=>{ if(n.dataset.id!==s.id) n.classList.add('dim'); });
+    const el=byId[s.id]; el.classList.remove('dim'); el.classList.add('active');
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+    setCur(s.id);
+    const stepNo=STEP_IDS.indexOf(s.id);
+    if(stepNo>=0){
+      eyebrow.textContent='Step '+(stepNo+1)+' of '+STEP_IDS.length;
+      stepcount.textContent='Step '+(stepNo+1)+' of '+STEP_IDS.length+'  ·  '+s.title;
+    } else {
+      eyebrow.textContent='Supporting Layer';
+      stepcount.textContent='Supporting layer  ·  '+s.title;
+    }
+    ntitle.textContent=s.title;
+    ntext.innerHTML=s.lead+(audioOn&&playing?'<span class="speaking"><i></i><i></i><i></i><i></i></span>':'');
+    nsub.innerHTML=s.sub.map(p=>'<div class="subitem"><div class="sname"><span class="b"></span>'+p[0]+'</div><div class="stext">'+p[1]+'</div></div>').join('');
+    ntools.innerHTML='<span class="lbl">Tools &amp; techniques</span>'+s.tools.map(t=>'<span class="chip">'+t+'</span>').join('');
+    bar.style.width=((i+1)/tour.length*100)+'%';
+  }
+
+  // iOS Safari requires speech to be unlocked by a real tap, and only then
+  // populates its voice list. Call this from every user-gesture handler.
+  let primed=false;
+  function primeSpeech(){
+    if(!('speechSynthesis' in window)) return;
+    if(!primed){
+      primed=true;
+      try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; window.speechSynthesis.speak(u); }catch(e){}
+    }
+    loadVoices();
+  }
+
+  function speak(text, onEnd){
+    if(!audioOn || !('speechSynthesis' in window)){ if(onEnd) onEnd(); return; }
+    window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.rate=rate; u.pitch=1; u.lang='en-US';
+    if(chosenVoice){ u.voice=chosenVoice; u.lang=chosenVoice.lang; }
+    u.onend=()=>{ if(onEnd) onEnd(); };
+    u.onerror=()=>{ if(onEnd) onEnd(); };
+    window.speechSynthesis.speak(u);
+  }
+  function stopSpeech(){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); }
+
+  function go(i,{autoAdvance=false}={}){
+    if(i<0)i=0; if(i>=tour.length)i=tour.length-1;
+    idx=i; render(idx);
+    stopSpeech();
+    if(autoAdvance && playing){
+      let advanced=false, fallback=null;
+      const adv=()=>{ if(advanced)return; advanced=true; if(fallback)clearTimeout(fallback);
+        if(playing && idx<tour.length-1){ timer=setTimeout(()=>go(idx+1,{autoAdvance:true}),700); }
+        else { stopTour(); } };
+      // Always keep a time-based fallback so the tour advances even if speech is
+      // blocked (iOS Safari) or onend never fires. Whichever happens first wins.
+      const dwell=Math.max(5000, tour[idx].say.length*90);
+      fallback=setTimeout(adv, dwell);
+      if(audioOn && 'speechSynthesis' in window){ speak(tour[idx].say, adv); }
+    } else if(audioOn){
+      speak(tour[idx].say);
+    }
+  }
+
+  function startTour(){ playing=true; document.getElementById('play').innerHTML='⏸ Pause';
+    if(idx<0||idx>=tour.length-1) idx=-1; go(idx+1,{autoAdvance:true}); }
+  function stopTour(){ playing=false; document.getElementById('play').innerHTML='▶ Play tour';
+    clearTimeout(timer); stopSpeech();
+    if(tour[idx]) ntext.innerHTML=tour[idx].lead; }
+
+  document.getElementById('play').onclick=()=>{ primeSpeech(); playing?stopTour():startTour(); };
+  document.getElementById('next').onclick=()=>{ primeSpeech(); stopTour(); go(Math.min(idx+1,tour.length-1)); };
+  document.getElementById('prev').onclick=()=>{ primeSpeech(); stopTour(); go(Math.max(idx-1,0)); };
+  document.getElementById('restart').onclick=()=>{ stopTour(); idx=-1; bar.style.width='0%'; clearGlow();
+    document.documentElement.style.setProperty('--cur','#3b82f6');
+    eyebrow.textContent='Overview'; ntitle.textContent='A guided tour of the FinAdvisor pipeline';
+    ntext.textContent='Press Play to watch the request flow light up step by step. Each box breaks down into its sub-components and tools. You can also click any block, or use the arrow keys.';
+    nsub.innerHTML=''; ntools.innerHTML=''; };
+
+  nodes.forEach(n=>n.addEventListener('click',()=>{
+    primeSpeech(); stopTour(); const i=tour.findIndex(t=>t.id===n.dataset.id); if(i>=0) go(i);
+  }));
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'){e.preventDefault();stopTour();go(Math.min(idx+1,tour.length-1));}
+    else if(e.key==='ArrowLeft'){e.preventDefault();stopTour();go(Math.max(idx-1,0));}
+    else if(e.key===' '){e.preventDefault();playing?stopTour():startTour();}
+  });
+
+  const at=document.getElementById('audioToggle');
+  at.onclick=()=>{ audioOn=!audioOn;
+    if(!audioOn) stopSpeech();
+    at.innerHTML='<span class="switch"></span> '+(audioOn?'🔊 Narration':'🔇 Muted');
+    at.classList.toggle('on',audioOn); };
+
+</script>
+</body>
+</html>
