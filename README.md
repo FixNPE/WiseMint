@@ -11,7 +11,8 @@ AI-powered financial advisory chatbot for educational guidance. Built with a ReA
 - [Features](#features)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
-- [Quick Start](#quick-start)
+- [Quick Start (UV — local Python environment)](#quick-start-uv--local-python-environment)
+- [Quick Start (Docker)](#quick-start-docker)
 - [Environment Variables](#environment-variables)
 - [Project Layout](#project-layout)
 - [Modules](#modules)
@@ -110,7 +111,34 @@ User Message
 
 ---
 
-## Quick Start
+## Quick Start (UV — local Python environment)
+
+[UV](https://github.com/astral-sh/uv) is the fastest way to set up a local dev environment without Docker.
+
+```bash
+# 1. Install uv (Windows PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 2. Create a Python 3.12 virtual environment
+uv venv --python 3.12
+
+# 3. Activate it
+.venv\Scripts\Activate.ps1      # PowerShell
+# source .venv/Scripts/activate # Git Bash
+
+# 4. Install the project + all dependencies
+uv pip install -e .
+
+# 5. Verify
+pytest tests/unit/
+
+# 6. Run the app locally (requires ChromaDB running separately, e.g. via Docker)
+streamlit run src/ui/app.py
+```
+
+> Step 6 needs a reachable ChromaDB instance (`CHROMA_HOST`/`CHROMA_PORT`). Easiest way: `docker compose up chromadb` in another terminal, then run Streamlit locally for fast iteration.
+
+## Quick Start (Docker)
 
 **Prerequisites:** Docker, Docker Compose, and API keys for Groq and Alpha Vantage.
 
