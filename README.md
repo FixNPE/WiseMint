@@ -182,6 +182,11 @@ Copy `.env.example` to `.env` and fill in values:
 | `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq model ID |
 | `CACHE_TTL_SECONDS` | No | `1800` | Market data cache TTL (seconds) |
 | `MAX_AGENT_STEPS` | No | `6` | Max ReAct iterations per query |
+| `CHROMA_API_KEY` | No | — | Chroma Cloud API key; if set, uses Chroma Cloud instead of local ChromaDB |
+| `CHROMA_TENANT` | No (Yes if `CHROMA_API_KEY` set) | — | Chroma Cloud tenant ID |
+| `CHROMA_DATABASE` | No | `fin_adv_kb` | Chroma Cloud database name |
+| `CHROMA_HOST` | No | `api.trychroma.com` (cloud) / `localhost` (local) | ChromaDB host |
+| `CHROMA_PORT` | No | `8000` | Local ChromaDB port (ignored for Cloud) |
 
 ---
 
@@ -404,13 +409,15 @@ pytest tests/unit/test_finance_math.py -v
 Place `.txt` files in `data/knowledge_base/`, then run:
 
 ```bash
-python -c "from src.kb.ingest import ingest_directory; ingest_directory('data/knowledge_base')"
+python -c "from dotenv import load_dotenv; load_dotenv(); from src.kb.ingest import ingest_directory; n = ingest_directory('data/knowledge_base'); print('chunks ingested:', n)"
 ```
+
+> `load_dotenv()` is required here — outside of `src/ui/app.py` nothing loads `.env` automatically. Without it, Chroma Cloud vars (`CHROMA_API_KEY`/`CHROMA_TENANT`/`CHROMA_DATABASE`) won't be picked up and ingestion will fall back to a local ChromaDB at `CHROMA_HOST`/`CHROMA_PORT`, which will fail to connect unless one is running (e.g. `docker compose up chromadb`).
 
 This will:
 1. Chunk each document at 800 characters with 100-character overlap
 2. Embed chunks using `bge-small-en-v1.5`
-3. Store embeddings in ChromaDB
+3. Store embeddings in ChromaDB (Chroma Cloud if `CHROMA_API_KEY` is set, otherwise local)
 4. Serialize a BM25 index to `data/bm25_index.pkl`
 
 After ingestion, the agent's `retrieve_knowledge` tool will use these documents to answer user questions.
