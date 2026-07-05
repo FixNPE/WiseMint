@@ -15,7 +15,7 @@ CHUNK_OVERLAP = 100
 COLLECTION = "finadvisor_kb"
 BM25_PATH = Path("data/bm25_index.pkl")
 
-_chroma: chromadb.HttpClient | None = None
+_chroma: chromadb.ClientAPI | None = None
 
 
 def ingest_directory(directory: str | Path) -> int:
@@ -75,7 +75,19 @@ def _store_bm25(chunks: list[dict]) -> None:
 def _get_collection() -> chromadb.Collection:
     global _chroma
     if _chroma is None:
-        host = os.getenv("CHROMA_HOST", "localhost")
-        port = int(os.getenv("CHROMA_PORT", "8000"))
-        _chroma = chromadb.HttpClient(host=host, port=port)
+        _chroma = _build_client()
     return _chroma.get_or_create_collection(COLLECTION)
+
+
+def _build_client() -> chromadb.ClientAPI:
+    api_key = os.getenv("CHROMA_API_KEY")
+    if api_key:
+        return chromadb.CloudClient(
+            api_key=api_key,
+            tenant=os.environ["CHROMA_TENANT"],
+            database=os.getenv("CHROMA_DATABASE", "fin_adv_kb"),
+            cloud_host=os.getenv("CHROMA_HOST", "api.trychroma.com"),
+        )
+    host = os.getenv("CHROMA_HOST", "localhost")
+    port = int(os.getenv("CHROMA_PORT", "8000"))
+    return chromadb.HttpClient(host=host, port=port)

@@ -5,7 +5,7 @@ import json
 import os
 from typing import Any
 
-from groq import Groq
+from groq import BadRequestError, Groq
 
 from src.agent.intent_classifier import Intent, classify
 from src.tools.dispatcher import dispatch
@@ -83,13 +83,23 @@ def run(user_message: str, user_id: str = "default", history: list[dict] | None 
     messages.append({"role": "user", "content": user_message})
 
     for _ in range(MAX_STEPS):
-        resp = client.chat.completions.create(
-            model=_MODEL,
-            messages=messages,
-            tools=_TOOLS,
-            tool_choice="auto",
-            temperature=0.3,
-        )
+        try:
+            resp = client.chat.completions.create(
+                model=_MODEL,
+                messages=messages,
+                tools=_TOOLS,
+                tool_choice="auto",
+                parallel_tool_calls=False,
+                temperature=0.3,
+            )
+        except BadRequestError:
+            # Model generated a malformed tool call (Llama XML-format bug).
+            # Retry once without tools so the user gets a plain answer.
+            fallback = client.chat.completions.create(
+                model=_MODEL, messages=messages, temperature=0.3
+            )
+            return fallback.choices[0].message.content or ""
+
         msg = resp.choices[0].message
 
         if not msg.tool_calls:

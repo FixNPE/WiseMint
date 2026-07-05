@@ -1,14 +1,13 @@
 """Hybrid BM25 + ChromaDB retrieval with RRF fusion."""
 from __future__ import annotations
 
-import os
 import pickle
 from pathlib import Path
 
 import chromadb
 
 from src.kb.embeddings import embed_query
-from src.kb.ingest import BM25_PATH, COLLECTION
+from src.kb.ingest import BM25_PATH, COLLECTION, _build_client
 
 TOP_K = 5
 RRF_K = 60  # constant in RRF formula
@@ -72,7 +71,4 @@ def _rrf_fuse(dense: list[dict], sparse: list[dict], top_k: int) -> list[dict]:
 
 
 def _get_collection() -> chromadb.Collection:
-    host = os.getenv("CHROMA_HOST", "localhost")
-    port = int(os.getenv("CHROMA_PORT", "8000"))
-    client = chromadb.HttpClient(host=host, port=port)
-    return client.get_or_create_collection(COLLECTION)
+    return _build_client().get_or_create_collection(COLLECTION)
